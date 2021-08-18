@@ -10,6 +10,7 @@ module Types =
     inherit Form ()
 
     let myLabel = new Label ()
+    let mutable labelUpdated = 0
 
     let initializeComponent () =
       self.SuspendLayout ()
@@ -33,8 +34,9 @@ module Types =
 
     do initializeComponent ()
 
-    member _.SetLabelText text =
-      myLabel.Text <- text
+    member _.BumpLabelText () =
+      labelUpdated <- labelUpdated + 1
+      myLabel.Text <- $"Ping #{labelUpdated}"
 
   type UpdateDelegate = delegate of unit -> unit
 
@@ -42,14 +44,15 @@ module Types =
 
     let bgw = new BackgroundWorker ()
 
-    let bgwDoWork args =
+    let bgwDoWork (args: DoWorkEventArgs) =
+      let updateDelegate = args.Argument :?> UpdateDelegate
       let nPings = pingRate * testLength
       let delay = 1000. / pingRate
       Thread.Sleep 500
       [ 0. .. nPings ]
       |> Seq.iter
         ( fun i ->
-            myForm.BeginInvoke (UpdateDelegate (fun _ -> myForm.SetLabelText $"Ping #{i}")) |> ignore
+            myForm.BeginInvoke updateDelegate |> ignore
             Thread.Sleep (int delay) )
 
     let bgwDone args =
@@ -60,5 +63,6 @@ module Types =
       bgw.DoWork.Add bgwDoWork
       bgw.RunWorkerCompleted.Add bgwDone
 
-    member _.RunStressor () =
-      bgw.RunWorkerAsync ()
+    member _.RunLabelStressor () =
+      let updateDelegate = UpdateDelegate (fun _ -> myForm.BumpLabelText ())
+      bgw.RunWorkerAsync updateDelegate
