@@ -1,59 +1,54 @@
 namespace Framework.Stress
 
-module TestRunner =
+module GenericTests =
   open System.Windows.Forms
   open Types
-  open XPlot.Plotly
 
-  let labelUpdateBeginInvokeTest testLength pingRate =
-    // run application and stressor in parallel
-    use myForm = new MyForm ()
-    let stressor = Stressor (myForm, testLength, pingRate)
-    stressor.RunLabelUpdateBeginInvokeStressor ()
+  let invokeTest testLength pingRate (myForm: MyForm) updateDelegate =
+    // Run stressor and application in parallel
+    Stressor.RunInvokeStressor testLength pingRate myForm updateDelegate
     Application.Run myForm
-    // Check with user if application stuttered
+    // query user for if the application stuttered
     let resp = MessageBox.Show ("Did this form stutter?", "Stutter Query", MessageBoxButtons.YesNo)
     resp = DialogResult.Yes
+
+  let beginInvokeTest testLength pingRate (myForm: MyForm) updateDelegate =
+    Stressor.RunBeginInvokeStressor testLength pingRate myForm updateDelegate
+    Application.Run myForm
+    let resp = MessageBox.Show ("Did this form stutter?", "Stutter Query", MessageBoxButtons.YesNo)
+    resp = DialogResult.Yes
+
+module Tests =
+  open GenericTests
+  open Types
+
+  let labelUpdateBeginInvokeTest testLength pingRate =
+    use myForm = new MyForm ()
+    beginInvokeTest testLength pingRate myForm (UpdateDelegate (fun () -> myForm.BumpLabelText ()))
 
   let labelUpdateInvokeTest testLength pingRate =
     use myForm = new MyForm ()
-    let stressor = Stressor (myForm, testLength, pingRate)
-    stressor.RunLabelUpdateInvokeStressor ()
-    Application.Run myForm
-    let resp = MessageBox.Show ("Did this form stutter?", "Stutter Query", MessageBoxButtons.YesNo)
-    resp = DialogResult.Yes
+    invokeTest testLength pingRate myForm (UpdateDelegate (fun () -> myForm.BumpLabelText ()))
 
   let chartUpdateBeginInvokeTest testLength pingRate =
     use myForm = new MyForm ()
-    let stressor = Stressor (myForm, testLength, pingRate)
-    stressor.RunChartUpdateBeginInvokeStressor ()
-    Application.Run myForm
-    let resp = MessageBox.Show ("Did this form stutter?", "Stutter Query", MessageBoxButtons.YesNo)
-    resp = DialogResult.Yes
+    beginInvokeTest testLength pingRate myForm (UpdateDelegate (fun () -> myForm.BumpChart ()))
 
   let chartUpdateInvokeTest testLength pingRate =
     use myForm = new MyForm ()
-    let stressor = Stressor (myForm, testLength, pingRate)
-    stressor.RunChartUpdateInvokeStressor ()
-    Application.Run myForm
-    let resp = MessageBox.Show ("Did this form stutter?", "Stutter Query", MessageBoxButtons.YesNo)
-    resp = DialogResult.Yes
+    invokeTest testLength pingRate myForm (UpdateDelegate (fun () -> myForm.BumpChart ()))
 
   let chartRebuildBeginInvokeTest testLength pingRate =
     use myForm = new MyForm ()
-    let stressor = Stressor (myForm, testLength, pingRate)
-    stressor.RunChartRebuildBeginInvokeStressor ()
-    Application.Run myForm
-    let resp = MessageBox.Show ("Did this form stutter?", "Stutter Query", MessageBoxButtons.YesNo)
-    resp = DialogResult.Yes
+    beginInvokeTest testLength pingRate myForm (UpdateDelegate (fun () -> myForm.RebuildChart ()))
 
   let chartRebuildInvokeTest testLength pingRate =
     use myForm = new MyForm ()
-    let stressor = Stressor (myForm, testLength, pingRate)
-    stressor.RunChartRebuildInvokeStressor ()
-    Application.Run myForm
-    let resp = MessageBox.Show ("Did this form stutter?", "Stutter Query", MessageBoxButtons.YesNo)
-    resp = DialogResult.Yes
+    invokeTest testLength pingRate myForm (UpdateDelegate (fun () -> myForm.RebuildChart ()))
+
+module TestRunner =
+  open XPlot.Plotly
+  open Tests
 
   let runTests testLength pingRates =
 

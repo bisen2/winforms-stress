@@ -83,63 +83,36 @@ module Types =
 
   type UpdateDelegate = delegate of unit -> unit
 
-  type Stressor (myForm: MyForm, testLength, pingRate) =
+  type Stressor =
 
-    let beginInvokeWorker = new BackgroundWorker ()
-    let invokeWorker = new BackgroundWorker ()
+    static member RunInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
+      let doWork args =
+        let nPings = pingRate * testLength
+        let delay = 1000. / pingRate
+        Thread.Sleep(500)
+        [ 0. .. nPings ]
+        |> Seq.iter
+            ( fun i ->
+                myForm.Invoke updateDelegate |> ignore
+                Thread.Sleep (int delay) )
+      let cleanup args = myForm.Invoke (UpdateDelegate (fun _ -> myForm.Close ())) |> ignore
+      use bgw = new BackgroundWorker ()
+      bgw.DoWork.Add doWork
+      bgw.RunWorkerCompleted.Add cleanup
+      bgw.RunWorkerAsync ()
 
-    let beginInvokeDoWork (args: DoWorkEventArgs) =
-      let updateDelegate = args.Argument :?> UpdateDelegate
-      let nPings = pingRate * testLength
-      let delay = 1000. / pingRate
-      Thread.Sleep 500
-      [ 0. .. nPings ]
-      |> Seq.iter
-        ( fun i ->
-            myForm.BeginInvoke updateDelegate |> ignore
-            Thread.Sleep (int delay) )
-
-    let invokeDoWork (args: DoWorkEventArgs) =
-      let updateDelegate = args.Argument :?> UpdateDelegate
-      let nPings = pingRate * testLength
-      let delay = 1000. / pingRate
-      Thread.Sleep(500)
-      [ 0. .. nPings ]
-      |> Seq.iter
-          ( fun i ->
-              myForm.Invoke updateDelegate |> ignore
-              Thread.Sleep (int delay) )
-
-    let cleanup args =
-      myForm.Invoke (UpdateDelegate (fun _ -> myForm.Close ())) |> ignore
-      ()
-
-    do
-      beginInvokeWorker.DoWork.Add beginInvokeDoWork
-      beginInvokeWorker.RunWorkerCompleted.Add cleanup
-      invokeWorker.DoWork.Add invokeDoWork
-      invokeWorker.RunWorkerCompleted.Add cleanup
-
-    member _.RunLabelUpdateBeginInvokeStressor () =
-      let updateDelegate = UpdateDelegate (fun _ -> myForm.BumpLabelText ())
-      beginInvokeWorker.RunWorkerAsync updateDelegate
-
-    member _.RunChartUpdateBeginInvokeStressor () =
-      let updateDelegate = UpdateDelegate (fun _ -> myForm.BumpChart ())
-      beginInvokeWorker.RunWorkerAsync updateDelegate
-
-    member _.RunChartRebuildBeginInvokeStressor () =
-      let updateDelegate = UpdateDelegate (fun _ -> myForm.RebuildChart ())
-      beginInvokeWorker.RunWorkerAsync updateDelegate
-
-    member _.RunLabelUpdateInvokeStressor () =
-      let updateDelegate = UpdateDelegate (fun _ -> myForm.BumpLabelText ())
-      invokeWorker.RunWorkerAsync updateDelegate
-
-    member _.RunChartUpdateInvokeStressor () =
-      let updateDelegate = UpdateDelegate (fun _ -> myForm.BumpChart ())
-      invokeWorker.RunWorkerAsync updateDelegate
-
-    member _.RunChartRebuildInvokeStressor () =
-      let updateDelegate = UpdateDelegate (fun _ -> myForm.RebuildChart ())
-      invokeWorker.RunWorkerAsync updateDelegate
+    static member RunBeginInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
+      let doWork args =
+        let nPings = pingRate * testLength
+        let delay = 1000. / pingRate
+        Thread.Sleep(500)
+        [ 0. .. nPings ]
+        |> Seq.iter
+            ( fun i ->
+                myForm.BeginInvoke updateDelegate |> ignore
+                Thread.Sleep (int delay) )
+      let cleanup args = myForm.Invoke (UpdateDelegate (fun _ -> myForm.Close ())) |> ignore
+      use bgw = new BackgroundWorker ()
+      bgw.DoWork.Add doWork
+      bgw.RunWorkerCompleted.Add cleanup
+      bgw.RunWorkerAsync ()
