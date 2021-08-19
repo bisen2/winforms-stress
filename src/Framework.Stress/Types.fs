@@ -81,14 +81,14 @@ module Types =
       chartXs <- x :: chartXs
       myChart.Series.[0].Points.DataBindXY (chartXs, chartXs) |> ignore
 
-
   type UpdateDelegate = delegate of unit -> unit
 
   type Stressor (myForm: MyForm, testLength, pingRate) =
 
-    let bgw = new BackgroundWorker ()
+    let beginInvokeWorker = new BackgroundWorker ()
+    let invokeWorker = new BackgroundWorker ()
 
-    let bgwDoWork (args: DoWorkEventArgs) =
+    let beginInvokeDoWork (args: DoWorkEventArgs) =
       let updateDelegate = args.Argument :?> UpdateDelegate
       let nPings = pingRate * testLength
       let delay = 1000. / pingRate
@@ -99,22 +99,47 @@ module Types =
             myForm.BeginInvoke updateDelegate |> ignore
             Thread.Sleep (int delay) )
 
-    let bgwDone args =
+    let invokeDoWork (args: DoWorkEventArgs) =
+      let updateDelegate = args.Argument :?> UpdateDelegate
+      let nPings = pingRate * testLength
+      let delay = 1000. / pingRate
+      Thread.Sleep(500)
+      [ 0. .. nPings ]
+      |> Seq.iter
+          ( fun i ->
+              myForm.Invoke updateDelegate |> ignore
+              Thread.Sleep (int delay) )
+
+    let cleanup args =
       myForm.Invoke (UpdateDelegate (fun _ -> myForm.Close ())) |> ignore
       ()
 
     do
-      bgw.DoWork.Add bgwDoWork
-      bgw.RunWorkerCompleted.Add bgwDone
+      beginInvokeWorker.DoWork.Add beginInvokeDoWork
+      beginInvokeWorker.RunWorkerCompleted.Add cleanup
+      invokeWorker.DoWork.Add invokeDoWork
+      invokeWorker.RunWorkerCompleted.Add cleanup
 
-    member _.RunLabelStressor () =
+    member _.RunLabelUpdateBeginInvokeStressor () =
       let updateDelegate = UpdateDelegate (fun _ -> myForm.BumpLabelText ())
-      bgw.RunWorkerAsync updateDelegate
+      beginInvokeWorker.RunWorkerAsync updateDelegate
 
-    member _.RunChartStressor () =
+    member _.RunChartUpdateBeginInvokeStressor () =
       let updateDelegate = UpdateDelegate (fun _ -> myForm.BumpChart ())
-      bgw.RunWorkerAsync updateDelegate
+      beginInvokeWorker.RunWorkerAsync updateDelegate
 
-    member _.RunChartRebuildStressor () =
+    member _.RunChartRebuildBeginInvokeStressor () =
       let updateDelegate = UpdateDelegate (fun _ -> myForm.RebuildChart ())
-      bgw.RunWorkerAsync updateDelegate
+      beginInvokeWorker.RunWorkerAsync updateDelegate
+
+    member _.RunLabelUpdateInvokeStressor () =
+      let updateDelegate = UpdateDelegate (fun _ -> myForm.BumpLabelText ())
+      invokeWorker.RunWorkerAsync updateDelegate
+
+    member _.RunChartUpdateInvokeStressor () =
+      let updateDelegate = UpdateDelegate (fun _ -> myForm.BumpChart ())
+      invokeWorker.RunWorkerAsync updateDelegate
+
+    member _.RunChartRebuildInvokeStressor () =
+      let updateDelegate = UpdateDelegate (fun _ -> myForm.RebuildChart ())
+      invokeWorker.RunWorkerAsync updateDelegate
