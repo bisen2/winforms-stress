@@ -4,5 +4,5 @@ This repo contains code that I am using to stress test the UI update loop of Win
 
 In particular, I am:
 - Running a form application
-- Pinging UI updates via BeginInvoke from a different thread
+- Pinging UI updates via Invoke (or BeginInvoke) from a different thread
 - Marking ping rates at which the form stutters

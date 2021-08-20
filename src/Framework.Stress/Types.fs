@@ -86,7 +86,7 @@ module Types =
   type Stressor =
 
     static member RunInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
-      let doWork args =
+      let doWork _ =
         let nPings = pingRate * testLength
         let delay = 1000. / pingRate
         Thread.Sleep(500)
@@ -95,14 +95,14 @@ module Types =
             ( fun i ->
                 myForm.Invoke updateDelegate |> ignore
                 Thread.Sleep (int delay) )
-      let cleanup args = myForm.Invoke (UpdateDelegate (fun _ -> myForm.Close ())) |> ignore
+      let cleanup _ = myForm.Invoke (UpdateDelegate (fun () -> myForm.Close ())) |> ignore
       use bgw = new BackgroundWorker ()
       bgw.DoWork.Add doWork
       bgw.RunWorkerCompleted.Add cleanup
       bgw.RunWorkerAsync ()
 
     static member RunBeginInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
-      let doWork args =
+      let doWork _ =
         let nPings = pingRate * testLength
         let delay = 1000. / pingRate
         Thread.Sleep(500)
@@ -111,7 +111,23 @@ module Types =
             ( fun i ->
                 myForm.BeginInvoke updateDelegate |> ignore
                 Thread.Sleep (int delay) )
-      let cleanup args = myForm.Invoke (UpdateDelegate (fun _ -> myForm.Close ())) |> ignore
+      let cleanup _ = myForm.Invoke (UpdateDelegate (fun () -> myForm.Close ())) |> ignore
+      use bgw = new BackgroundWorker ()
+      bgw.DoWork.Add doWork
+      bgw.RunWorkerCompleted.Add cleanup
+      bgw.RunWorkerAsync ()
+
+    static member RunIrregularBeginInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
+      let doWork _ =
+        let nPings = pingRate * testLength
+        let delay = 1000. / pingRate
+        Thread.Sleep(500)
+        [ 0. .. nPings ]
+        |> Seq.iter
+            ( fun i ->
+                myForm.BeginInvoke updateDelegate |> ignore
+                if i % 10. <> 0. then Thread.Sleep (int delay) ) // for every 10th ping, send the next immediately
+      let cleanup _ = myForm.Invoke (UpdateDelegate (fun () -> myForm.Close ())) |> ignore
       use bgw = new BackgroundWorker ()
       bgw.DoWork.Add doWork
       bgw.RunWorkerCompleted.Add cleanup
