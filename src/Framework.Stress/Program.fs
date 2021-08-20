@@ -4,13 +4,6 @@ module Program =
   open TestRunner
   open XPlot.Plotly
 
-  let test () =
-    let stopwatch = System.Diagnostics.Stopwatch ()
-    stopwatch.Start ()
-    let xs = [ 1 .. 1000000 ] |> List.map (fun x -> x * x)
-    stopwatch.Stop ()
-    stopwatch.ElapsedMilliseconds
-
   [<EntryPoint>]
   let main _ =
     let testLength = 1.

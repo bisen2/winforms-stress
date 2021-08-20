@@ -1,8 +1,9 @@
 namespace Framework.Stress
 
+/// Collection of generic tests that ping a given form with the given delegate
 module GenericTests =
   open System.Windows.Forms
-  open Types
+  open Forms
 
   let invokeTest testLength pingRate (myForm: MyForm) updateDelegate =
     // Run stressor and application in parallel
@@ -24,9 +25,10 @@ module GenericTests =
     let resp = MessageBox.Show ("Did this form stutter?", "Stutter Query", MessageBoxButtons.YesNo)
     resp = DialogResult.Yes
 
+/// Collection of specific implementations of the generic tests. Each test defines a form and delegate to use
 module Tests =
   open GenericTests
-  open Types
+  open Forms
 
   let labelUpdateBeginInvokeTest testLength pingRate =
     use myForm = new MyForm ()
@@ -64,12 +66,15 @@ module Tests =
     use myForm = new MyForm ()
     irregularBeginInvokeTest testLength pingRate myForm (UpdateDelegate (fun () -> myForm.RebuildChart ()))
 
+/// Provides a function for running the entire test suite
 module TestRunner =
   open XPlot.Plotly
   open Tests
 
+  /// Runs the entire test suite with the given ping conditions
   let runTests testLength pingRates =
 
+    /// Generates a scatter trace from a list of (x,y) pairs
     let generateTrace name data =
       Scatter (
         x = (data |> List.map (fun (x, _) -> x)),
@@ -78,6 +83,7 @@ module TestRunner =
         mode = "markers",
         marker = Marker ( size = 10 ) )
 
+    /// Generates a chart from a list of scatter traces
     let generatePlot (traces: Scatter list) =
       let layout =
         Layout (
@@ -88,6 +94,7 @@ module TestRunner =
       |> Chart.Plot
       |> Chart.WithLayout layout
 
+    /// Runs the given test with each ping rate provided to the containing function
     let runTest testName test =
       pingRates
       |> Seq.map (fun pingRates -> (pingRates, test testLength pingRates))

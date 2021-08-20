@@ -1,18 +1,15 @@
 namespace Framework.Stress
 
-module Types =
-  open System.ComponentModel
+module Forms =
   open System.Drawing
-  open System.Threading
   open System.Windows.Forms
   open System.Windows.Forms.DataVisualization.Charting
 
+  /// A form used as the target of invoke calls
   type MyForm () as self =
     inherit Form ()
-    // label update test fields
     let myLabel = new Label ()
     let mutable labelUpdated = 0
-    // chart update test fields
     let mutable chartXs: int list = []
     let myChart = new Chart ()
     let myChartArea = new ChartArea ()
@@ -61,10 +58,12 @@ module Types =
 
     do initializeComponent ()
 
+    /// Method to update label text (low resource intensity)
     member _.BumpLabelText () =
       labelUpdated <- labelUpdated + 1
       myLabel.Text <- $"Ping #{labelUpdated}"
 
+    /// Method to update chart data (medium resource intensity)
     member _.BumpChart () =
       let x =
         match chartXs with
@@ -73,6 +72,7 @@ module Types =
       chartXs <- x :: chartXs
       myChart.Series.[0].Points.AddXY (x, x) |> ignore
 
+    /// Method to rebuild the chart (high resource intensity)
     member _.RebuildChart () =
       let x =
         match chartXs with
@@ -81,54 +81,61 @@ module Types =
       chartXs <- x :: chartXs
       myChart.Series.[0].Points.DataBindXY (chartXs, chartXs) |> ignore
 
+/// Contains functions for pinging repeated invokes on a form
+module Stressor =
+  open System.ComponentModel
+  open System.Threading
+  open Forms
+
   type UpdateDelegate = delegate of unit -> unit
 
-  type Stressor =
+  /// Calls Invoke on the form with the given delegate at the specified frequency
+  let RunInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
+    let doWork _ =
+      let nPings = pingRate * testLength
+      let delay = 1000. / pingRate
+      Thread.Sleep(500)
+      [ 0. .. nPings ]
+      |> Seq.iter
+          ( fun i ->
+              myForm.Invoke updateDelegate |> ignore
+              Thread.Sleep (int delay) )
+    let cleanup _ = myForm.Invoke (UpdateDelegate (fun () -> myForm.Close ())) |> ignore
+    use bgw = new BackgroundWorker ()
+    bgw.DoWork.Add doWork
+    bgw.RunWorkerCompleted.Add cleanup
+    bgw.RunWorkerAsync ()
 
-    static member RunInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
-      let doWork _ =
-        let nPings = pingRate * testLength
-        let delay = 1000. / pingRate
-        Thread.Sleep(500)
-        [ 0. .. nPings ]
-        |> Seq.iter
-            ( fun i ->
-                myForm.Invoke updateDelegate |> ignore
-                Thread.Sleep (int delay) )
-      let cleanup _ = myForm.Invoke (UpdateDelegate (fun () -> myForm.Close ())) |> ignore
-      use bgw = new BackgroundWorker ()
-      bgw.DoWork.Add doWork
-      bgw.RunWorkerCompleted.Add cleanup
-      bgw.RunWorkerAsync ()
+  /// Calls BeginInvoke on the form with the given delegate at the specified frequency
+  let RunBeginInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
+    let doWork _ =
+      let nPings = pingRate * testLength
+      let delay = 1000. / pingRate
+      Thread.Sleep(500)
+      [ 0. .. nPings ]
+      |> Seq.iter
+          ( fun i ->
+              myForm.BeginInvoke updateDelegate |> ignore
+              Thread.Sleep (int delay) )
+    let cleanup _ = myForm.Invoke (UpdateDelegate (fun () -> myForm.Close ())) |> ignore
+    use bgw = new BackgroundWorker ()
+    bgw.DoWork.Add doWork
+    bgw.RunWorkerCompleted.Add cleanup
+    bgw.RunWorkerAsync ()
 
-    static member RunBeginInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
-      let doWork _ =
-        let nPings = pingRate * testLength
-        let delay = 1000. / pingRate
-        Thread.Sleep(500)
-        [ 0. .. nPings ]
-        |> Seq.iter
-            ( fun i ->
-                myForm.BeginInvoke updateDelegate |> ignore
-                Thread.Sleep (int delay) )
-      let cleanup _ = myForm.Invoke (UpdateDelegate (fun () -> myForm.Close ())) |> ignore
-      use bgw = new BackgroundWorker ()
-      bgw.DoWork.Add doWork
-      bgw.RunWorkerCompleted.Add cleanup
-      bgw.RunWorkerAsync ()
-
-    static member RunIrregularBeginInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
-      let doWork _ =
-        let nPings = pingRate * testLength
-        let delay = 1000. / pingRate
-        Thread.Sleep(500)
-        [ 0. .. nPings ]
-        |> Seq.iter
-            ( fun i ->
-                myForm.BeginInvoke updateDelegate |> ignore
-                if i % 10. <> 0. then Thread.Sleep (int delay) ) // for every 10th ping, send the next immediately
-      let cleanup _ = myForm.Invoke (UpdateDelegate (fun () -> myForm.Close ())) |> ignore
-      use bgw = new BackgroundWorker ()
-      bgw.DoWork.Add doWork
-      bgw.RunWorkerCompleted.Add cleanup
-      bgw.RunWorkerAsync ()
+  /// Calls BeginInvoke on the form with the given delegate at the specified frequency, but with every tenth ping skipping the delay
+  let RunIrregularBeginInvokeStressor testLength pingRate (myForm: MyForm) (updateDelegate: UpdateDelegate) =
+    let doWork _ =
+      let nPings = pingRate * testLength
+      let delay = 1000. / pingRate
+      Thread.Sleep(500)
+      [ 0. .. nPings ]
+      |> Seq.iter
+          ( fun i ->
+              myForm.BeginInvoke updateDelegate |> ignore
+              if i % 10. <> 0. then Thread.Sleep (int delay) ) // for every 10th ping, send the next immediately
+    let cleanup _ = myForm.Invoke (UpdateDelegate (fun () -> myForm.Close ())) |> ignore
+    use bgw = new BackgroundWorker ()
+    bgw.DoWork.Add doWork
+    bgw.RunWorkerCompleted.Add cleanup
+    bgw.RunWorkerAsync ()
